@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00ffc6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SOMA">>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SOMA — Body Tracker</title>
@@ -71,6 +75,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 @media(max-width:380px){.metrics-row{grid-template-columns:repeat(2,1fr);}}
 </style>
 </head>
+  <script>
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
 <body>
 <div id="header">
   <div class="logo">SOMA <span>/ tracker</span></div>
