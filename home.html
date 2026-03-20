@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SOMA</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00ffc6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SOMA">
+<link rel="stylesheet" href="home.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="logo">SOMA</div>
+  <div class="header-right">
+    <div id="xp-pill">0 XP</div>
+    <button id="profile-btn">Sign In</button>
+  </div>
+</div>
+
+<!-- HERO -->
+<div id="hero">
+  <div class="hero-greeting" id="hero-greeting">Welcome back</div>
+  <div class="hero-name" id="hero-name">Athlete</div>
+  <div class="hero-stats" id="hero-stats">
+    <div class="hstat"><div class="hstat-val" id="hs-reps">—</div><div class="hstat-lbl">Total Reps</div></div>
+    <div class="hstat-div"></div>
+    <div class="hstat"><div class="hstat-val" id="hs-sessions">—</div><div class="hstat-lbl">Sessions</div></div>
+    <div class="hstat-div"></div>
+    <div class="hstat"><div class="hstat-val" id="hs-xp">—</div><div class="hstat-lbl">Story XP</div></div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div id="main-grid">
+
+  <!-- Self Training — primary CTA -->
+  <div class="card card-primary" id="card-training">
+    <div class="card-glow"></div>
+    <div class="card-icon">🏋️</div>
+    <div class="card-content">
+      <div class="card-title">Self Training</div>
+      <div class="card-desc">Real-time body tracking · Rep counter · Posture analysis</div>
+    </div>
+    <div class="card-arrow">→</div>
+  </div>
+
+  <!-- Story -->
+  <div class="card card-story" id="card-story">
+    <div class="card-icon">⚔️</div>
+    <div class="card-content">
+      <div class="card-title">Your Story</div>
+      <div class="card-desc">Episodes & chapters · Unlock challenges</div>
+      <div class="card-badge" id="story-badge">Ch.1 Active</div>
+    </div>
+    <div class="card-arrow">→</div>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="card card-half" id="card-leaderboard">
+    <div class="card-icon" style="font-size:28px;">🏆</div>
+    <div class="card-content">
+      <div class="card-title">Leaderboard</div>
+      <div class="card-desc">Global rankings</div>
+    </div>
+  </div>
+
+  <!-- Watch Room -->
+  <div class="card card-half" id="card-watch">
+    <div class="card-icon" style="font-size:28px;">📡</div>
+    <div class="card-content">
+      <div class="card-title">Watch Room</div>
+      <div class="card-desc">Live skeleton streaming</div>
+    </div>
+  </div>
+
+  <!-- Teams -->
+  <div class="card card-half card-soon" id="card-teams">
+    <div class="card-icon" style="font-size:28px;">🛡️</div>
+    <div class="card-content">
+      <div class="card-title">Teams</div>
+      <div class="card-desc">Coming soon</div>
+    </div>
+    <div class="soon-tag">Soon</div>
+  </div>
+
+  <!-- Team Fights -->
+  <div class="card card-half card-soon" id="card-fights">
+    <div class="card-icon" style="font-size:28px;">⚡</div>
+    <div class="card-content">
+      <div class="card-title">Team Fights</div>
+      <div class="card-desc">Coming soon</div>
+    </div>
+    <div class="soon-tag">Soon</div>
+  </div>
+
+</div>
+
+<!-- AUTH MODAL -->
+<div id="auth-modal">
+  <div class="auth-box">
+    <div class="auth-title">Join <span>SOMA</span></div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login">Sign In</button>
+      <button class="auth-tab" id="tab-signup">Sign Up</button>
+    </div>
+    <div id="signup-username-field" class="auth-field" style="display:none;">
+      <div class="auth-label">Username</div>
+      <input class="auth-input" id="auth-username" type="text" placeholder="soma_athlete" autocomplete="username">
+    </div>
+    <div class="auth-field">
+      <div class="auth-label">Email</div>
+      <input class="auth-input" id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <div class="auth-label">Password</div>
+      <input class="auth-input" id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="auth-err" id="auth-err"></div>
+    <button class="auth-submit" id="auth-submit">Sign In</button>
+    <div class="auth-skip" id="auth-skip-btn">Skip — explore without account</div>
+  </div>
+</div>
+
+<!-- LEADERBOARD MODAL -->
+<div id="lb-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">🏆 Leaderboard</div>
+      <button class="modal-close" id="lb-close">✕</button>
+    </div>
+    <div class="lb-filter" id="lb-filter"></div>
+    <div id="lb-list"><div class="sp-empty">Loading…</div></div>
+  </div>
+</div>
+
+<script src="home-auth.js"></script>
+<script>
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
