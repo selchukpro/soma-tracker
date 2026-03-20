@@ -2,7 +2,7 @@
   "name": "SOMA Body Tracker",
   "short_name": "SOMA",
   "description": "Real-time on-device body tracking",
-  "start_url": "/soma-tracker/",
+  "start_url": "/soma-tracker/home.html",
   "display": "fullscreen",
   "orientation": "any",
   "background_color": "#0a0a0f",
