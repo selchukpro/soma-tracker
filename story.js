@@ -97,18 +97,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── LOAD PROGRESS ─────────────────────────────
 async function reloadProgress() {
   if (!currentUser) return;
+
+  // Load completed episodes
   const {data, error} = await supa.from('story_progress')
     .select('chapter,episode,reps_done').eq('user_id', currentUser.id);
-  if (error) { console.error('Progress load:', error.message); return; }
+  if (error) {
+    console.error('Progress load error:', error.message);
+  }
+
   completedSet.clear();
+  (data||[]).forEach(p => completedSet.add(`${p.chapter}-${p.episode}`));
+
+  // Calculate XP from completedSet (source of truth)
   let xp = 0;
-  (data||[]).forEach(p => {
-    completedSet.add(`${p.chapter}-${p.episode}`);
-    const ch=CHAPTERS.find(c=>c.id===p.chapter);
-    const ep=ch?.episodes.find(e=>e.id===p.episode);
-    if(ep) xp += ep.xp;
-  });
+  for(const ch of CHAPTERS)
+    for(const ep of ch.episodes)
+      if(completedSet.has(`${ch.id}-${ep.id}`)) xp += ep.xp;
+
   document.getElementById('story-xp-pill').textContent = xp + ' XP';
+  console.log(`Progress loaded: ${completedSet.size} episodes done, ${xp} XP`);
 }
 
 // ── RENDER CHAPTERS ───────────────────────────
@@ -406,6 +413,7 @@ async function completeEpisode() {
   const uid = session?.user?.id;
 
   if (uid) {
+    // 1. Save episode completion
     const { error: e1 } = await supa.from('story_progress').upsert({
       user_id:      uid,
       chapter:      chapter.id,
@@ -414,24 +422,46 @@ async function completeEpisode() {
       completed_at: new Date().toISOString()
     }, { onConflict:'user_id,chapter,episode' });
     if (e1) console.error('story_progress error:', e1.message);
+    else    console.log('story_progress saved OK');
 
+    // 2. Save workout
     const { error: e2 } = await supa.from('workouts').insert({
       user_id:  uid,
       exercise: episode.exercise,
       reps:     repsAchieved
     });
     if (e2) console.error('workouts error:', e2.message);
+
+    // 3. Calculate new total XP from completedSet (already updated above)
+    completedSet.add(`${chapter.id}-${episode.id}`);
+    let totalXp = 0;
+    for(const ch of CHAPTERS)
+      for(const ep of ch.episodes)
+        if(completedSet.has(`${ch.id}-${ep.id}`)) totalXp += ep.xp;
+
+    // Find next unlocked episode for profile tracking
+    let nextCh = chapter.id, nextEp = episode.id + 1;
+    if (nextEp > chapter.episodes.length) { nextCh = chapter.id + 1; nextEp = 1; }
+
+    // 4. Update profile with XP + story position
+    const { error: e3 } = await supa.from('profiles').update({
+      total_xp:        totalXp,
+      story_chapter:   nextCh,
+      story_episode:   nextEp
+    }).eq('id', uid);
+    if (e3) console.error('profiles update error:', e3.message);
+    else    console.log('Profile XP updated to', totalXp);
+
+    document.getElementById('story-xp-pill').textContent = totalXp + ' XP';
   } else {
     console.warn('Not logged in — progress not saved');
+    completedSet.add(`${chapter.id}-${episode.id}`);
+    let totalXp = 0;
+    for(const ch of CHAPTERS)
+      for(const ep of ch.episodes)
+        if(completedSet.has(`${ch.id}-${ep.id}`)) totalXp += ep.xp;
+    document.getElementById('story-xp-pill').textContent = totalXp + ' XP (not saved)';
   }
-
-  // Update local state
-  completedSet.add(`${chapter.id}-${episode.id}`);
-  let totalXp = 0;
-  for(const ch of CHAPTERS)
-    for(const ep of ch.episodes)
-      if(completedSet.has(`${ch.id}-${ep.id}`)) totalXp += ep.xp;
-  document.getElementById('story-xp-pill').textContent = totalXp + ' XP';
 
   // Show cleared screen
   document.getElementById('cleared-ep-name').textContent   = `${episode.monsterEmoji} ${episode.monster} Defeated!`;
