@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SOMA — PvP</title>
+<link rel="stylesheet" href="pvp.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+</head>
+<body>
+
+<!-- MODE SELECT -->
+<div id="view-mode">
+  <div class="top-bar">
+    <a href="home.html" class="back-btn">← Home</a>
+    <div class="page-title">⚡ PvP</div>
+    <div id="pvp-user">···</div>
+  </div>
+  <div class="mode-body">
+
+    <div class="pvp-mode-card" id="mc-1v1">
+      <div class="pmc-left">
+        <div class="pmc-icon">🗡️</div>
+        <div>
+          <div class="pmc-title">1 v 1</div>
+          <div class="pmc-desc">You vs one opponent. Most reps in 60 seconds wins.</div>
+        </div>
+      </div>
+      <div class="pmc-tag">Duel</div>
+    </div>
+
+    <div class="pvp-mode-card" id="mc-2v2">
+      <div class="pmc-left">
+        <div class="pmc-icon">⚔️</div>
+        <div>
+          <div class="pmc-title">2 v 2</div>
+          <div class="pmc-desc">Two teams of two. Combined reps decide the winner.</div>
+        </div>
+      </div>
+      <div class="pmc-tag">Team</div>
+    </div>
+
+    <div class="pvp-mode-card" id="mc-3v3">
+      <div class="pmc-left">
+        <div class="pmc-icon">🛡️</div>
+        <div>
+          <div class="pmc-title">3 v 3</div>
+          <div class="pmc-desc">Three vs three. The ultimate team battle.</div>
+        </div>
+      </div>
+      <div class="pmc-tag">Team</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="view-lobby" class="hidden">
+  <div class="top-bar">
+    <button class="back-btn" id="lobby-back">← Back</button>
+    <div class="lobby-code-display" id="lobby-code">······</div>
+    <button class="copy-btn" id="lobby-copy">Copy</button>
+  </div>
+  <div class="lobby-body">
+    <div class="lobby-title" id="lobby-title">1v1 Duel</div>
+    <div class="lobby-sub" id="lobby-sub">Share the code to invite opponents</div>
+
+    <!-- Team columns -->
+    <div class="teams-wrap" id="teams-wrap">
+      <div class="team-col team-a-col">
+        <div class="team-label-a">⚔️ TEAM A</div>
+        <div id="team-a-members"></div>
+        <button class="join-team-btn-a" id="join-a">Join A</button>
+      </div>
+      <div class="vs-divider">VS</div>
+      <div class="team-col team-b-col">
+        <div class="team-label-b">🛡️ TEAM B</div>
+        <div id="team-b-members"></div>
+        <button class="join-team-btn-b" id="join-b">Join B</button>
+      </div>
+    </div>
+
+    <!-- Exercise -->
+    <div class="ex-row">
+      <button class="ex-btn active" data-ex="squat">🦵 Squat</button>
+      <button class="ex-btn" data-ex="pushup">💪 Push-up</button>
+    </div>
+
+    <!-- Duration -->
+    <div class="dur-row">
+      <span class="dur-label">Duration</span>
+      <div class="dur-btns">
+        <button class="dur-btn active" data-sec="60">60s</button>
+        <button class="dur-btn" data-sec="90">90s</button>
+        <button class="dur-btn" data-sec="120">120s</button>
+      </div>
+    </div>
+
+    <div class="lobby-actions">
+      <button class="big-btn accent" id="ready-btn">✓ Ready</button>
+      <div id="start-wrap" style="display:none;">
+        <button class="big-btn start-btn" id="start-btn">▶ START BATTLE</button>
+      </div>
+    </div>
+    <div class="lobby-hint" id="lobby-hint">Waiting for players…</div>
+  </div>
+</div>
+
+<!-- BATTLE ARENA -->
+<div id="view-battle" class="hidden">
+
+  <!-- Header -->
+  <div id="battle-header">
+    <div id="battle-timer-wrap">
+      <div id="battle-timer">01:00</div>
+      <div id="battle-ex-label">SQUAT</div>
+    </div>
+    <!-- Score display -->
+    <div id="battle-scores">
+      <div class="bscore team-a-score">
+        <div class="bscore-label team-a-lbl">⚔️ A</div>
+        <div class="bscore-val" id="score-a">0</div>
+      </div>
+      <div class="bscore-sep">—</div>
+      <div class="bscore team-b-score">
+        <div class="bscore-label team-b-lbl">🛡️ B</div>
+        <div class="bscore-val" id="score-b">0</div>
+      </div>
+    </div>
+    <button id="battle-end-btn">✕</button>
+  </div>
+
+  <!-- Arena canvas -->
+  <div id="battle-arena">
+    <canvas id="battle-canvas"></canvas>
+    <video id="battle-video" playsinline autoplay muted style="display:none;"></video>
+    <div id="battle-loading">
+      <div class="loader-ring"></div>
+      <div id="battle-loading-text">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Per-player rep chips -->
+  <div id="player-chips"></div>
+</div>
+
+<!-- RESULT -->
+<div id="view-result" class="hidden">
+  <div class="result-box">
+    <div id="result-emoji">🏆</div>
+    <div id="result-winner">Team A Wins!</div>
+    <div id="result-score-display"></div>
+    <div id="result-player-stats"></div>
+    <button class="big-btn accent" id="result-rematch">Rematch</button>
+    <button class="big-btn" id="result-home">← Home</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://jmkyakgzqdkavebtrnpj.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impta3lha2d6cWRrYXZlYnRybnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMDI4MzIsImV4cCI6MjA4OTU3ODgzMn0.pNtqN1ejAW6dY2Ov35_ksX5ZQ5syvSdagYr5cjy8iIo';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+</script>
+<script src="pvp.js"></script>
+</body>
+</html>
