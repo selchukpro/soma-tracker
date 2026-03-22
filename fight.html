@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SOMA — Boss Fight</title>
+<link rel="stylesheet" href="fight.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+</head>
+<body>
+
+<!-- ── MODE SELECT ── -->
+<div id="view-mode">
+  <div class="top-bar">
+    <a href="home.html" class="back-btn">← Home</a>
+    <div class="page-title">⚔️ Fight</div>
+    <div id="mode-user">···</div>
+  </div>
+  <div class="mode-body">
+    <div class="mode-card" id="mc-solo">
+      <div class="mc-icon">🗡️</div>
+      <div class="mc-title">Solo Boss Fight</div>
+      <div class="mc-desc">You vs the boss. Every rep deals damage. Boss heals every 5s. Survive and win.</div>
+      <div class="mc-tag">Single Player</div>
+    </div>
+    <div class="mode-card" id="mc-team-boss">
+      <div class="mc-icon">🛡️</div>
+      <div class="mc-title">Team Boss Fight</div>
+      <div class="mc-desc">Fight together against a shared boss. Combined reps deal damage. Gets harder each round.</div>
+      <div class="mc-tag">Multiplayer · Co-op</div>
+    </div>
+    <div class="mode-card" id="mc-team-vs">
+      <div class="mc-icon">⚡</div>
+      <div class="mc-title">Team vs Team</div>
+      <div class="mc-desc">2v2 or 3v3. Each team fights their own boss. Most damage wins when time runs out.</div>
+      <div class="mc-tag">Multiplayer · PvP</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LOBBY (for multiplayer modes) ── -->
+<div id="view-lobby" class="hidden">
+  <div class="top-bar">
+    <button class="back-btn" id="lobby-back">← Back</button>
+    <div class="room-code" id="lobby-code">······</div>
+    <button class="copy-btn" id="lobby-copy">Copy</button>
+  </div>
+  <div class="lobby-body">
+    <div class="lobby-mode-title" id="lobby-mode-title">Team Boss Fight</div>
+
+    <!-- Team vs mode — team assignment -->
+    <div id="team-assign" style="display:none;">
+      <div class="team-row">
+        <div class="team-col" id="team-a-col">
+          <div class="team-label team-a-label">⚔️ Team A</div>
+          <div id="team-a-list"></div>
+          <button class="join-team-btn" id="join-a-btn">Join Team A</button>
+        </div>
+        <div class="team-col" id="team-b-col">
+          <div class="team-label team-b-label">🛡️ Team B</div>
+          <div id="team-b-list"></div>
+          <button class="join-team-btn" id="join-b-btn">Join Team B</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- All modes member list -->
+    <div id="lobby-members"></div>
+
+    <!-- Exercise selector -->
+    <div class="exercise-select">
+      <div class="es-label">Exercise</div>
+      <div class="es-btns">
+        <button class="es-btn active" data-ex="squat">🦵 Squat</button>
+        <button class="es-btn" data-ex="pushup">💪 Push-up</button>
+      </div>
+    </div>
+
+    <div class="lobby-actions">
+      <button class="big-btn accent" id="lobby-ready-btn">✓ Ready</button>
+      <div id="lobby-start-wrap" style="display:none;">
+        <button class="big-btn start-btn" id="lobby-start-btn">▶ START FIGHT</button>
+      </div>
+    </div>
+    <div class="lobby-hint" id="lobby-hint">Waiting for players…</div>
+  </div>
+</div>
+
+<!-- ── FIGHT ARENA ── -->
+<div id="view-fight" class="hidden">
+
+  <!-- Boss section -->
+  <div id="boss-section">
+    <div id="boss-top">
+      <div id="boss-info">
+        <div id="boss-emoji">🐉</div>
+        <div id="boss-name">Dragon King</div>
+        <div id="boss-level">Round 1</div>
+      </div>
+      <div id="boss-hp-wrap">
+        <div id="boss-hp-bar-bg">
+          <div id="boss-hp-bar"></div>
+          <div id="boss-hp-heal-flash"></div>
+        </div>
+        <div id="boss-hp-text">100 / 100</div>
+      </div>
+    </div>
+    <!-- Heal timer -->
+    <div id="heal-timer-wrap">
+      <div id="heal-timer-bar"></div>
+      <div id="heal-timer-text">Heals in 5s</div>
+    </div>
+  </div>
+
+  <!-- Team B boss (only in team vs mode) -->
+  <div id="boss-b-section" style="display:none;">
+    <div id="boss-b-hp-wrap">
+      <div class="team-b-label" style="font-size:10px;margin-bottom:3px;">🛡️ TEAM B BOSS</div>
+      <div id="boss-b-hp-bar-bg"><div id="boss-b-hp-bar"></div></div>
+      <div id="boss-b-hp-text">100 / 100</div>
+    </div>
+  </div>
+
+  <!-- Skeleton arena -->
+  <div id="fight-arena">
+    <canvas id="fight-canvas"></canvas>
+    <video id="fight-video" playsinline autoplay muted style="display:none;"></video>
+    <div id="fight-loading">
+      <div class="loader-ring"></div>
+      <div id="fight-loading-text">Loading…</div>
+    </div>
+  </div>
+
+  <!-- Footer: rep scoreboard -->
+  <div id="fight-footer">
+    <div id="fight-timer">00:00</div>
+    <div id="fight-scoreboard"></div>
+    <button id="fight-end-btn">✕</button>
+  </div>
+</div>
+
+<!-- ── RESULT ── -->
+<div id="view-result" class="hidden">
+  <div class="result-box">
+    <div id="result-emoji">🏆</div>
+    <div id="result-title">Victory!</div>
+    <div id="result-sub"></div>
+    <div id="result-stats"></div>
+    <button class="big-btn accent" id="result-again-btn">Fight Again</button>
+    <button class="big-btn" id="result-home-btn">← Home</button>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://jmkyakgzqdkavebtrnpj.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impta3lha2d6cWRrYXZlYnRybnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMDI4MzIsImV4cCI6MjA4OTU3ODgzMn0.pNtqN1ejAW6dY2Ov35_ksX5ZQ5syvSdagYr5cjy8iIo';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+</script>
+<script src="fight.js"></script>
+</body>
+</html>
