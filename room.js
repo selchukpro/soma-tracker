@@ -252,13 +252,10 @@ let trackLastPose = 0;
 let myRepPhase = 'up';
 let myRepEma = null;
 
+let _trackInterval = null;
+
 async function startTracking(exercise) {
-  const video  = document.getElementById('my-video');
-  const canvas = document.getElementById('my-canvas');
-  const arenaCanvas = document.getElementById('arena-canvas');
-  const stage = document.getElementById('arena');
-  arenaCanvas.width  = stage.offsetWidth;
-  arenaCanvas.height = stage.offsetHeight;
+  const video = document.getElementById('my-video');
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -277,58 +274,70 @@ async function startTracking(exercise) {
     }
     document.getElementById('arena-loading').classList.add('hidden');
 
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Resize canvas NOW (view is visible)
+    const arenaCanvas = document.getElementById('arena-canvas');
+    const stage = document.getElementById('arena');
+    arenaCanvas.width  = stage.offsetWidth  || window.innerWidth;
+    arenaCanvas.height = stage.offsetHeight || window.innerHeight * 0.7;
+    console.log('[Room] arena canvas:', arenaCanvas.width, 'x', arenaCanvas.height);
+
     sessionRunning = true;
     trackRunning   = true;
 
-    // Add myself to peers
-    peers[me.id] = { name:me.username, color:COLORS[0], reps:0, kps:null, lastSeen:Date.now() };
+    // Add myself to peers with empty kps so renderLoop includes me
+    peers[me.id] = {
+      name: me.username,
+      color: COLORS[0],
+      reps: 0,
+      kps: null,
+      lastSeen: Date.now()
+    };
 
-    trackLoop(exercise);
+    // Use setInterval instead of rAF+async to avoid blocking
+    if (_trackInterval) clearInterval(_trackInterval);
+    _trackInterval = setInterval(() => runPose(exercise), 50); // 20fps
+
+    // Start render loop
     renderLoop();
+
   } catch(e) {
     document.getElementById('arena-loading-text').textContent = 'Camera error: ' + e.message;
-    console.error(e);
+    console.error('[Room] camera/model error:', e);
   }
 }
 
-async function trackLoop(exercise) {
-  if (!trackRunning) return;
-  requestAnimationFrame(() => trackLoop(exercise));
-  const now = performance.now();
-  if (now - trackLastPose < 50) return; // 20fps
-  trackLastPose = now;
-
+async function runPose(exercise) {
+  if (!trackRunning || !detector) return;
   const video = document.getElementById('my-video');
-  if (video.readyState < 2 || !detector) return;
+  if (video.readyState < 2) return;
 
   let poses;
-  try { poses = await detector.estimatePoses(video,{flipHorizontal:false}); } catch(e){ return; }
+  try { poses = await detector.estimatePoses(video, {flipHorizontal:false}); } catch(e){ return; }
   if (!poses?.length) return;
 
+  const ts = performance.now() / 1000;
   const kps = poses[0].keypoints.map((k,i)=>({
     ...k,
-    x: filtersX[i].filter(k.x, now/1000),
-    y: filtersY[i].filter(k.y, now/1000)
+    x: filtersX[i].filter(k.x, ts),
+    y: filtersY[i].filter(k.y, ts)
   }));
 
-  // Update my peer entry
-  peers[me.id] = { ...peers[me.id], kps, lastSeen:Date.now() };
+  // Update my entry — lastSeen keeps it visible in render
+  peers[me.id] = { ...peers[me.id], kps, lastSeen: Date.now() };
 
-  // Broadcast my skeleton (compressed)
-  if (sessionChannel || lobbyChannel) {
-    const ch = sessionChannel || lobbyChannel;
+  // Broadcast compressed skeleton
+  const ch = lobbyChannel;
+  if (ch) {
     ch.send({
       type:'broadcast', event:'skeleton',
       payload:{
-        uid: me.id, name: me.username,
-        kps: kps.map(k=>({x:Math.round(k.x),y:Math.round(k.y),s:+k.score.toFixed(2)}))
+        uid:  me.id,
+        name: me.username,
+        kps:  kps.map(k=>({x:Math.round(k.x), y:Math.round(k.y), s:+k.score.toFixed(2)}))
       }
     }).catch(()=>{});
   }
 
-  // Count reps (squat = knee angle)
   countMyReps(kps, exercise);
 }
 
@@ -396,7 +405,15 @@ function renderLoop() {
 
   const now   = Date.now();
   const uids  = Object.keys(peers).filter(uid => peers[uid].kps && (now-peers[uid].lastSeen)<4000);
-  if (!uids.length) return;
+  if (!uids.length) {
+    // Show waiting text while cameras load
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = 'bold 16px Syne, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Loading cameras…', canvas.width/2, canvas.height/2);
+    ctx.textAlign = 'left';
+    return;
+  }
 
   const cols  = Math.min(uids.length, 3);
   const rows  = Math.ceil(uids.length / cols);
@@ -475,6 +492,7 @@ function endSession() {
   sessionRunning = false;
   trackRunning   = false;
   clearInterval(sessionTimerInterval);
+  if (_trackInterval) { clearInterval(_trackInterval); _trackInterval = null; }
   // Stop camera
   const video = document.getElementById('my-video');
   if (video.srcObject) { video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
